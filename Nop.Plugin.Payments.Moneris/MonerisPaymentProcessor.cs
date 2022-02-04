@@ -17,6 +17,7 @@ using Nop.Web.Framework;
 using System.Threading.Tasks;
 using Nop.Services.Common;
 using Nop.Services.Directory;
+using Nop.Services.Orders;
 
 namespace Nop.Plugin.Payments.Moneris
 {
@@ -25,35 +26,38 @@ namespace Nop.Plugin.Payments.Moneris
         #region Fields
 
         private readonly ILocalizationService _localizationService;
-        private readonly IPaymentService _paymentService;
         private readonly ISettingService _settingService;
         private readonly IWebHelper _webHelper;
         private readonly MonerisPaymentSettings _monerisPaymentSettings;
         private readonly IAddressService _addressService;
         private readonly IStateProvinceService _stateProvinceService;
         private readonly ICountryService _countryService;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IOrderTotalCalculationService _orderTotalCalculationService;
 
         #endregion
 
         #region Ctor
 
         public MonerisPaymentProcessor(ILocalizationService localizationService,
-            IPaymentService paymentService,
             ISettingService settingService,
             IWebHelper webHelper,
             MonerisPaymentSettings monerisPaymentSettings,
             IAddressService addressService,
             IStateProvinceService stateProvinceService,
-            ICountryService countryService)
+            ICountryService countryService,
+            IHttpContextAccessor httpContextAccessor, 
+            IOrderTotalCalculationService orderTotalCalculationService)
         {
             _localizationService = localizationService;
-            _paymentService = paymentService;
             _settingService = settingService;
             _webHelper = webHelper;
             _monerisPaymentSettings = monerisPaymentSettings;
             _addressService = addressService;
             _stateProvinceService = stateProvinceService;
             _countryService = countryService;
+            _httpContextAccessor = httpContextAccessor;
+            _orderTotalCalculationService = orderTotalCalculationService;
         }
 
         #endregion
@@ -97,7 +101,7 @@ namespace Nop.Plugin.Payments.Moneris
             var nfi = new CultureInfo("en-US", false).NumberFormat;
             var url = GetPaymentUrl();
             var gatewayUrl = new Uri(url);
-            var post = new RemotePost { Url = gatewayUrl.ToString(), Method = "POST" };
+            var post = new RemotePost(_httpContextAccessor,_webHelper) { Url = gatewayUrl.ToString(), Method = "POST" };
 
             var order = postProcessPaymentRequest.Order;
 
@@ -179,7 +183,7 @@ namespace Nop.Plugin.Payments.Moneris
         /// <returns>Additional handling fee</returns>
         public async Task<decimal> GetAdditionalHandlingFeeAsync(IList<ShoppingCartItem> cart)
         {
-            var result = await _paymentService.CalculateAdditionalFeeAsync(cart,
+            var result = await _orderTotalCalculationService.CalculatePaymentAdditionalFeeAsync(cart,
                 _monerisPaymentSettings.AdditionalFee, _monerisPaymentSettings.AdditionalFeePercentage);
             return result;
         }
